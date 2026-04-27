@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>PingPong Spot — Heidelberg & Neckargemünd</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
+
   <style>
     :root {
       --primary: #F97316; --primary-dark: #C2410C; --bg: #0F172A;
@@ -15,55 +17,89 @@
       --error: #EF4444; --success: #10B981; --warning: #F59E0B;
     }
     *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
-    #app { width: 100%; height: 100vh; display: flex; flex-direction: column; }
-    .header { padding: 12px; background: var(--surface); display: flex; justify-content: space-between; align-items: center; }
-    .view { flex: 1; overflow: auto; display: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; height: 100vh; }
+    
+    #app { display: flex; flex-direction: column; height: 100vh; width: 100%; }
+    .header { height: 60px; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--border); z-index: 1000; }
+    .view { flex: 1; position: relative; overflow-y: auto; display: none; }
     .view.active { display: block; }
     #map { width: 100%; height: 100%; }
-    .tabs { display: flex; background: var(--surface); border-top: 1px solid var(--border); }
-    .tab { flex: 1; padding: 10px; text-align: center; color: var(--text-2); background: transparent; border: none; }
+
+    /* Navegación inferior */
+    .tabs { height: 70px; background: var(--surface); display: flex; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+    .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: none; border: none; color: var(--text-2); cursor: pointer; transition: 0.2s; }
     .tab.active { color: var(--primary); }
-    .tab i { display: block; font-size: 20px; }
-    #login-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; }
-    .btn { padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; }
+    .tab i { font-size: 24px; margin-bottom: 4px; }
+    .tab span { font-size: 11px; font-weight: 500; }
+
+    /* Login */
+    #login-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; text-align: center; padding: 20px; }
+    .btn { padding: 12px 24px; border-radius: 12px; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-google { background: white; color: #333; display: flex; gap: 8px; align-items: center; }
+    .btn-google { background: white; color: #1e293b; font-size: 16px; }
+
+    /* Estilo de Previsualización de Fotos que pediste */
+    #photo-preview { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .photo-preview-item { position: relative; width: 80px; height: 80px; }
+    .photo-preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 2px solid var(--primary); }
+    .photo-remove { position: absolute; top: -8px; right: -8px; background: var(--error); color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
 
   <div id="login-screen">
-    <h1 style="color:var(--primary)">PingPong Spot</h1>
+    <div style="font-size: 60px; color: var(--primary); margin-bottom: 10px;">
+        <i class="mdi mdi-table-tennis"></i>
+    </div>
+    <h1 style="margin:0; font-size: 28px;">PingPong Spot</h1>
+    <p style="color: var(--text-2); margin-bottom: 30px;">Encuentra las mejores mesas cerca de ti</p>
     <button class="btn btn-google" onclick="signInWithGoogle()">
-      <i class="mdi mdi-google"></i> Continuar con Google
+      <img src="https://www.google.com/favicon.ico" width="20"> Continuar con Google
     </button>
   </div>
 
   <div id="app" style="display:none;">
     <header class="header">
-      <h2 style="margin:0; font-size:18px;">PingPong Spot</h2>
-      <button class="btn btn-primary" style="padding:5px 10px" onclick="signOut()">Salir</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <i class="mdi mdi-table-tennis" style="color:var(--primary); font-size:24px;"></i>
+        <h2 style="margin:0; font-size:18px;">PingPong Spot</h2>
+      </div>
+      <button class="btn" style="background:transparent; color:var(--text-2); padding:5px;" onclick="signOut()">
+        <i class="mdi mdi-logout"></i>
+      </button>
     </header>
 
-    <section id="view-map" class="view active"><div id="map"></div></section>
-    <section id="view-list" class="view"><div style="padding:20px;">Lista de Mesas...</div></section>
-    <section id="view-add" class="view"><div style="padding:20px;">Formulario de Añadir...</div></section>
+    <section id="view-map" class="view active">
+      <div id="map"></div>
+    </section>
+
+    <section id="view-add" class="view" style="padding:20px;">
+      <h3>Añadir Nueva Mesa</h3>
+      <input type="text" id="add-name" placeholder="Nombre del lugar" style="width:100%; padding:12px; margin-bottom:10px; background:var(--surface-2); border:1px solid var(--border); color:white; border-radius:8px;">
+      
+      <button class="btn btn-primary" onclick="document.getElementById('table-photo-input').click()" style="width:100%; margin-bottom:10px;">
+        <i class="mdi mdi-camera"></i> Seleccionar Fotos
+      </button>
+      <input type="file" id="table-photo-input" accept="image/*" multiple onchange="handlePhotoSelect(event)" style="display:none;">
+      
+      <div id="photo-preview"></div>
+      
+      <button id="submit-btn" class="btn btn-primary" onclick="submitTable()" style="width:100%; margin-top:20px;">
+        <i class="mdi mdi-check-circle"></i> Guardar Mesa
+      </button>
+    </section>
 
     <nav class="tabs">
-      <button class="tab active" onclick="setView('map')"><i class="mdi mdi-map"></i>Mapa</button>
-      <button class="tab" onclick="setView('list')"><i class="mdi mdi-format-list-bulleted"></i>Lista</button>
-      <button class="tab" onclick="setView('add')"><i class="mdi mdi-plus-circle"></i>Añadir</button>
+      <button class="tab active" onclick="setView('map')"><i class="mdi mdi-map"></i><span>MAPA</span></button>
+      <button class="tab" onclick="setView('add')"><i class="mdi mdi-plus-circle"></i><span>AÑADIR</span></button>
     </nav>
   </div>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
     
-    const SUPABASE_URL = "https://xqunorualimwmhosqxsj.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // Tu clave actual
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Configuración Supabase
+    const supabase = createClient("https://xqunorualimwmhosqxsj.supabase.co", "TU_ANON_KEY_AQUI");
 
     window.signInWithGoogle = async () => {
       await supabase.auth.signInWithOAuth({
@@ -84,7 +120,28 @@
       event.currentTarget.classList.add('active');
     };
 
-    // Verificar sesión al cargar
+    // Lógica de Fotos
+    let pendingPhotos = [];
+    window.handlePhotoSelect = (e) => {
+      const files = Array.from(e.target.files || []);
+      files.forEach(f => pendingPhotos.push(f));
+      renderPhotoPreview();
+    };
+
+    function renderPhotoPreview() {
+      const c = document.getElementById("photo-preview");
+      c.innerHTML = pendingPhotos.map((f, i) => `
+        <div class="photo-preview-item">
+          <img src="${URL.createObjectURL(f)}">
+          <span class="photo-remove" onclick="removePhoto(${i})">×</span>
+        </div>`).join("");
+    }
+    window.removePhoto = (i) => {
+      pendingPhotos.splice(i, 1);
+      renderPhotoPreview();
+    };
+
+    // Auth Change
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         document.getElementById('login-screen').style.display = 'none';
