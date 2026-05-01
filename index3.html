@@ -1,0 +1,1340 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PingPong Spot — Heidelberg & Neckargemünd</title>
+
+  <!-- ============================================================
+       AQUÍ EMPIEZAN LIBRERÍAS EXTERNAS (CDN)
+       ============================================================ -->
+  <!-- Leaflet (mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <!-- Material Design Icons (mismo set que el logo de la app) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
+
+  <!-- ============================================================
+       AQUÍ EMPIEZAN LOS ESTILOS GLOBALES (CSS)
+       ============================================================ -->
+  <style>
+    /* ---------- VARIABLES DE COLOR ---------- */
+    :root {
+      --primary: #F97316;       /* naranja marca */
+      --primary-dark: #C2410C;
+      --bg: #0F172A;            /* fondo oscuro */
+      --surface: #1E293B;
+      --surface-2: #334155;
+      --border: #475569;
+      --text: #F1F5F9;
+      --text-2: #94A3B8;
+      --white: #FFFFFF;
+      --error: #EF4444;
+      --success: #10B981;
+      --warning: #F59E0B;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow: hidden;
+    }
+    button { font-family: inherit; cursor: pointer; border: none; }
+    input, textarea, select { font-family: inherit; }
+
+    /* ---------- LAYOUT PRINCIPAL ---------- */
+    #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 1000;
+    }
+    .header h1 {
+      margin: 0; font-size: 18px; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .header-logo {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--white); font-size: 18px;
+    }
+    .lang-select {
+      background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 6px 10px; font-size: 13px;
+    }
+
+    .photo-preview-item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+}
+.photo-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #555;
+}
+.photo-remove {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: bold;
+}
+    /* ---------- TABS INFERIORES ---------- */
+    .tabs {
+      display: flex; background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 4px 0;
+    }
+    .tab {
+      flex: 1; padding: 8px; background: transparent;
+      color: var(--text-2); font-size: 11px; font-weight: 600;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      min-height: 56px;
+    }
+    .tab.active { color: var(--primary); }
+    .tab i { font-size: 22px; }
+
+    /* ---------- VISTAS (UNA VISIBLE A LA VEZ) ---------- */
+    .view { flex: 1; overflow: auto; display: none; }
+    .view.active { display: block; }
+    #view-map { display: none; }
+    #view-map.active { display: block; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* ---------- MARCADOR PERSONALIZADO LEAFLET ---------- */
+    /* Aro blanco + círculo naranja + raqueta MDI table-tennis */
+    .pp-marker {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+    }
+    .pp-marker .inner {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pp-marker svg { width: 26px; height: 26px; }
+
+    /* ---------- LISTA DE MESAS ---------- */
+    .list-header {
+      padding: 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .list-header h2 { margin: 0 0 4px 0; font-size: 22px; }
+    .list-header p  { margin: 0; color: var(--text-2); font-size: 13px; }
+    .filter-row { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; }
+    .chip {
+      background: var(--surface); color: var(--text-2);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 6px 14px; font-size: 13px; white-space: nowrap;
+      min-height: 36px;
+    }
+    .chip.active { background: var(--primary); color: var(--white); border-color: var(--primary); }
+    .table-list { padding: 0 16px 80px; }
+    .table-card {
+      display: flex; gap: 12px; padding: 12px;
+      background: var(--surface); border-radius: 12px;
+      margin-bottom: 10px; align-items: center;
+      transition: transform 0.1s;
+    }
+    .table-card:active { transform: scale(0.98); }
+    .table-thumb {
+      width: 56px; height: 56px; border-radius: 12px;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--white); font-size: 26px; flex-shrink: 0;
+    }
+    .table-thumb img { width: 100%; height: 100%; border-radius: 12px; object-fit: cover; }
+    .table-info { flex: 1; min-width: 0; }
+    .table-name { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+    .table-meta { font-size: 12px; color: var(--text-2); }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 700; margin-right: 4px;
+    }
+    .badge-good     { background: rgba(16,185,129,0.2); color: var(--success); }
+    .badge-regular  { background: rgba(245,158,11,0.2); color: var(--warning); }
+    .badge-deteriorated { background: rgba(239,68,68,0.2); color: var(--error); }
+
+    /* ---------- FORMULARIOS ---------- */
+    .form-section { padding: 16px 16px 100px; }
+    .form-section h2 { margin: 0 0 4px 0; font-size: 22px; }
+    .form-section .sub { color: var(--text-2); font-size: 13px; margin-bottom: 16px; }
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block; font-size: 11px; color: var(--text-2);
+      text-transform: uppercase; margin-bottom: 6px; font-weight: 700;
+    }
+    .field input, .field textarea, .field select {
+      width: 100%; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; color: var(--text); font-size: 15px;
+      min-height: 44px;
+    }
+    .field textarea { min-height: 80px; resize: vertical; }
+    .segment {
+      display: flex; gap: 4px; background: var(--surface);
+      border-radius: 10px; padding: 4px;
+    }
+    .segment button {
+      flex: 1; background: transparent; color: var(--text-2);
+      padding: 10px; border-radius: 8px; font-weight: 600; font-size: 13px;
+      min-height: 40px;
+    }
+    .segment button.active { background: var(--primary); color: var(--white); }
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 8px; min-height: 48px;
+    }
+    .toggle-row label { font-weight: 600; font-size: 14px; }
+    /* iOS-style switch */
+    .switch { position: relative; width: 48px; height: 26px; }
+    .switch input { display: none; }
+    .switch span {
+      position: absolute; inset: 0;
+      background: var(--surface-2); border-radius: 13px;
+      transition: 0.2s;
+    }
+    .switch span::before {
+      content: ""; position: absolute;
+      width: 22px; height: 22px; left: 2px; top: 2px;
+      background: var(--white); border-radius: 50%;
+      transition: 0.2s;
+    }
+    .switch input:checked + span { background: var(--primary); }
+    .switch input:checked + span::before { transform: translateX(22px); }
+
+    /* ---------- BOTONES PRINCIPALES ---------- */
+    .btn {
+      width: 100%; padding: 14px; border-radius: 999px;
+      font-weight: 700; font-size: 15px; min-height: 52px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: var(--white); }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: var(--error); color: var(--white); }
+    .btn-google {
+      background: var(--white); color: #1F2937;
+    }
+    .btn-google i { color: #4285F4; font-size: 22px; }
+    .btn[disabled] { opacity: 0.5; pointer-events: none; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .btn-row .btn { flex: 1; min-width: 110px; }
+
+    /* ---------- LOGIN ---------- */
+    #login-screen {
+      position: fixed; inset: 0; z-index: 5000;
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; text-align: center;
+    }
+    #login-screen .logo {
+      width: 130px; height: 130px; border-radius: 50%;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; box-shadow: 0 8px 24px rgba(249,115,22,0.4);
+    }
+    #login-screen .logo i { font-size: 72px; color: var(--white); }
+    #login-screen h1 { margin: 0 0 8px 0; font-size: 36px; font-weight: 800; }
+    #login-screen p  { color: var(--text-2); margin: 0 0 24px 0; max-width: 340px; }
+    #login-screen .btn-google { max-width: 320px; }
+    #login-screen .legal { color: var(--text-2); font-size: 11px; margin-top: 16px; max-width: 280px; }
+
+    /* ---------- MODAL ---------- */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 4000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-bg.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--bg); width: 100%; max-width: 600px;
+      max-height: 90vh; border-top-left-radius: 20px; border-top-right-radius: 20px;
+      overflow-y: auto; transform: translateY(100%); transition: transform 0.25s;
+    }
+    .modal-bg.open .modal { transform: translateY(0); }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    .modal-header h3 { margin: 0; font-size: 17px; }
+    .modal-close { background: transparent; color: var(--text); font-size: 24px; padding: 4px 10px; }
+    .modal-body { padding: 16px; }
+    .modal-photos { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; }
+    .modal-photo { width: 200px; height: 140px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+    .detail-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .detail-row i { color: var(--primary); font-size: 18px; width: 22px; }
+    .detail-row .val { margin-left: auto; color: var(--text-2); }
+
+    /* ---------- TOAST ---------- */
+    #toast {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: var(--surface-2); color: var(--white);
+      padding: 12px 20px; border-radius: 999px; font-size: 14px;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+      z-index: 6000; max-width: 90%;
+    }
+    #toast.show { opacity: 1; }
+    #toast.error { background: var(--error); }
+    #toast.success { background: var(--success); }
+
+    /* ---------- LOADING ---------- */
+    .loader {
+      display: inline-block; width: 20px; height: 20px;
+      border: 3px solid rgba(255,255,255,0.3); border-radius: 50%;
+      border-top-color: var(--white); animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty {
+      text-align: center; color: var(--text-2);
+      font-style: italic; padding: 40px 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       AQUÍ EMPIEZA LA INTERFAZ HTML
+       ============================================================ -->
+
+  <!-- AQUÍ EMPIEZA PANTALLA DE LOGIN -->
+  <div id="login-screen">
+    <div class="logo"><i class="mdi mdi-table-tennis"></i></div>
+    <h1>PingPong Spot</h1>
+    <p data-i18n="login.subtitle">Encuentra y juega en las mejores mesas de Heidelberg & Neckargemünd.</p>
+    <button class="btn btn-google" onclick="signInWithGoogle()">
+      <i class="mdi mdi-google"></i>
+      <span data-i18n="login.cta">Continuar con Google</span>
+    </button>
+    <p class="legal" data-i18n="login.legal">Al continuar aceptas el uso responsable de las mesas públicas.</p>
+  </div>
+
+  <!-- AQUÍ EMPIEZA LA APP PRINCIPAL (oculta hasta el login) -->
+  <div id="app" style="display:none;">
+
+    <!-- ========== HEADER ========== -->
+    <header class="header">
+      <h1>
+        <span class="header-logo"><i class="mdi mdi-table-tennis"></i></span>
+        PingPong Spot
+      </h1>
+      <select id="lang-select" class="lang-select" onchange="setLocale(this.value)">
+        <option value="es">🇪🇸 ES</option>
+        <option value="en">🇬🇧 EN</option>
+        <option value="de">🇩🇪 DE</option>
+        <option value="pl">🇵🇱 PL</option>
+      </select>
+    </header>
+
+    <!-- ========== VISTA: MAPA ========== -->
+    <section id="view-map" class="view active">
+      <div id="map"></div>
+    </section>
+
+    <!-- ========== VISTA: LISTA ========== -->
+    <section id="view-list" class="view">
+      <div class="list-header">
+        <h2 data-i18n="list.title">Mesas cercanas</h2>
+        <p data-i18n="list.from_your_loc">Ordenadas desde tu ubicación</p>
+      </div>
+      <div class="filter-row">
+        <button class="chip active" data-filter="all"      onclick="setFilter('all')"      data-i18n="list.filter_all">Todas</button>
+        <button class="chip"        data-filter="lighting" onclick="setFilter('lighting')" data-i18n="list.filter_lighting">Iluminadas</button>
+      </div>
+      <div id="table-list" class="table-list"></div>
+    </section>
+
+    <!-- ========== VISTA: AÑADIR MESA ========== -->
+    <section id="view-add" class="view">
+      <div class="form-section">
+        <h2 data-i18n="add.title">Añadir mesa</h2>
+        <p class="sub" data-i18n="add.subtitle">Comparte una mesa nueva con la comunidad.</p>
+
+        <div class="field">
+          <label data-i18n="add.name">Nombre</label>
+          <input id="add-name" type="text" placeholder="Ej: Parque Neckarwiese">
+        </div>
+        <div class="field">
+          <label data-i18n="add.address">Dirección</label>
+          <input id="add-address" type="text" placeholder="Calle, código postal, ciudad">
+        </div>
+
+        <div class="field">
+          <label data-i18n="add.gps">Ubicación GPS</label>
+          <button class="btn btn-secondary" onclick="useCurrentLocation()" style="margin-bottom:8px;">
+            <i class="mdi mdi-crosshairs-gps"></i>
+            <span data-i18n="add.use_current">Usar ubicación actual</span>
+          </button>
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+  <input type="number" id="manual-lat" step="any" placeholder="Latitud (ej: 49.409)" style="flex:1;">
+  <input type="number" id="manual-lng" step="any" placeholder="Longitud (ej: 8.692)" style="flex:1;">
+</div>
+          <div style="display:flex; gap:8px;">
+            <input id="add-lat" type="text" placeholder="Latitud (49.4093)">
+            <input id="add-lng" type="text" placeholder="Longitud (8.6929)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-i18n="add.condition">Estado de la mesa</label>
+          <div class="segment" id="cond-seg">
+            <button data-val="good"   class="active" onclick="setCondition('good')"   data-i18n="cond.good">Buena</button>
+            <button data-val="regular"            onclick="setCondition('regular')"   data-i18n="cond.regular">Regular</button>
+            <button data-val="deteriorated"       onclick="setCondition('deteriorated')" data-i18n="cond.deteriorated">Deteriorada</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-i18n="add.description">Descripción</label>
+          <textarea id="add-desc" placeholder="Detalles útiles..."></textarea>
+        </div>
+
+        <!-- Toggles de amenidades -->
+        <div class="toggle-row"><label data-i18n="add.lighting">Iluminación nocturna</label>          <label class="switch"><input type="checkbox" id="amen-lighting"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.shade">Sombra</label>                       <label class="switch"><input type="checkbox" id="amen-shade"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.benches">Bancos cerca</label>               <label class="switch"><input type="checkbox" id="amen-benches"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.water">Agua cerca</label>                   <label class="switch"><input type="checkbox" id="amen-water"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.restrooms">Baños cerca</label>              <label class="switch"><input type="checkbox" id="amen-restrooms"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.kids">Apta para niños</label>               <label class="switch"><input type="checkbox" id="amen-kids"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.accessible">Accesible</label>               <label class="switch"><input type="checkbox" id="amen-accessible"><span></span></label></div>
+        <div class="toggle-row"><label data-i18n="amenity.cost">¿Es gratis?</label>                   <label class="switch"><input type="checkbox" id="amen-free" checked><span></span></label></div>
+
+        <div style="margin: 20px 0; border-top: 1px solid #444; padding-top: 15px;">
+    <label style="display: block; margin-bottom: 10px; color: #ccc; font-weight: bold;">
+        <i class="mdi mdi-camera"></i> Fotos de la mesa
+    </label>
+    
+    <input type="file" id="table-photo-input" accept="image/*" multiple 
+           onchange="handlePhotoSelect(event)" style="display: none;">
+    
+    <button type="button" class="btn" onclick="document.getElementById('table-photo-input').click()" 
+            style="background: #444; color: white; width: 100%; margin-bottom: 10px;">
+        <i class="mdi mdi-plus"></i> Seleccionar fotos
+    </button>
+
+    <div id="photo-preview" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+</div>
+        <button class="btn btn-primary" onclick="submitTable()" id="submit-btn">
+          <i class="mdi mdi-check-circle"></i>
+          <span data-i18n="add.save">Guardar mesa</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ========== VISTA: PERFIL ========== -->
+    <section id="view-profile" class="view">
+      <div class="form-section">
+        <div id="profile-header" style="text-align:center; margin-bottom:24px;"></div>
+        <h3 data-i18n="profile.my_added">Mis mesas añadidas</h3>
+        <div id="my-tables" class="table-list" style="padding:0;"></div>
+        <button class="btn btn-secondary" onclick="signOut()" style="margin-top:24px;">
+          <i class="mdi mdi-logout"></i>
+          <span data-i18n="profile.logout">Salir</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ========== VISTA: ADMIN (solo visible si is_admin=true) ========== -->
+    <section id="view-admin" class="view">
+      <div class="form-section">
+        <h2 data-i18n="admin.title">Panel de administración</h2>
+        <p class="sub" data-i18n="admin.subtitle">Modera contenido enviado por usuarios</p>
+        <div class="filter-row" style="padding:0 0 12px 0;">
+          <button class="chip active" data-admin-tab="tables"  onclick="setAdminTab('tables')"  data-i18n="admin.tab_tables">Mesas</button>
+          <button class="chip"        data-admin-tab="reports" onclick="setAdminTab('reports')" data-i18n="admin.tab_reports">Reportes</button>
+          <button class="chip"        data-admin-tab="reviews" onclick="setAdminTab('reviews')" data-i18n="admin.tab_reviews">Reseñas</button>
+        </div>
+        <div id="admin-list"></div>
+      </div>
+    </section>
+
+    <!-- ========== TABS INFERIORES ========== -->
+    <nav class="tabs">
+      <button class="tab active" data-view="map"     onclick="setView('map')">    <i class="mdi mdi-map"></i>            <span data-i18n="tab.map">Mapa</span></button>
+      <button class="tab"        data-view="list"    onclick="setView('list')">   <i class="mdi mdi-format-list-bulleted"></i> <span data-i18n="tab.list">Lista</span></button>
+      <button class="tab"        data-view="add"     onclick="setView('add')">    <i class="mdi mdi-plus-circle"></i>    <span data-i18n="tab.add">Añadir</span></button>
+      <button class="tab"        data-view="profile" onclick="setView('profile')"><i class="mdi mdi-account"></i>        <span data-i18n="tab.profile">Perfil</span></button>
+      <button class="tab" id="tab-admin" style="display:none;" data-view="admin" onclick="setView('admin')">
+        <i class="mdi mdi-shield-check"></i><span data-i18n="tab.admin">Admin</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ========== MODAL DETALLE DE MESA ========== -->
+  <div class="modal-bg" id="detail-modal" onclick="if(event.target===this) closeModal('detail-modal')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="detail-title">—</h3>
+        <button class="modal-close" onclick="closeModal('detail-modal')">×</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast"></div>
+
+  <!-- ============================================================
+       AQUÍ EMPIEZA EL JAVASCRIPT (LÓGICA DE LA APP)
+       ============================================================ -->
+  <script type="module">
+    // ============================================================
+    // AQUÍ EMPIEZA CONFIGURACIÓN DE SUPABASE
+    // ============================================================
+    // 👉 RELLENA ESTOS DOS VALORES con los datos de tu proyecto Supabase
+    // (Settings → API en supabase.com)
+const SUPABASE_URL = "https://xqunorualimwmhosqxsj.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxdW5vcnVhbGltd21ob3NxeHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTQ4MTksImV4cCI6MjA5MjgzMDgxOX0.0zOK_ubBOH_xVqyOlf3J920Xt9M4zn1NNoxUZzOdfCM";
+    // Lista de emails con permisos de admin
+    const ADMIN_EMAILS = ["rovimars@gmail.com"];
+
+    // Centro por defecto del mapa: Heidelberg
+    const DEFAULT_CENTER = { lat: 49.4093, lng: 8.6929 };
+
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL DICCIONARIO DE TRADUCCIONES (i18n)
+    // ============================================================
+    const I18N = {
+      es: {
+        "login.subtitle": "Encuentra y juega en las mejores mesas de Heidelberg & Neckargemünd.",
+        "login.cta": "Continuar con Google",
+        "login.legal": "Al continuar aceptas el uso responsable de las mesas públicas.",
+        "tab.map": "Mapa", "tab.list": "Lista", "tab.add": "Añadir", "tab.profile": "Perfil", "tab.admin": "Admin",
+        "list.title": "Mesas cercanas", "list.from_your_loc": "Ordenadas desde tu ubicación",
+        "list.filter_all": "Todas", "list.filter_lighting": "Iluminadas", "list.empty": "No hay mesas con este filtro.",
+        "cond.good": "Buena", "cond.regular": "Regular", "cond.deteriorated": "Deteriorada",
+        "add.title": "Añadir mesa", "add.subtitle": "Comparte una mesa nueva con la comunidad.",
+        "add.name": "Nombre", "add.address": "Dirección", "add.gps": "Ubicación GPS",
+        "add.use_current": "Usar ubicación actual", "add.condition": "Estado de la mesa",
+        "add.description": "Descripción", "add.lighting": "Iluminación nocturna",
+        "add.save": "Guardar mesa", "add.saved": "¡Mesa añadida!",
+        "amenity.shade": "Sombra", "amenity.benches": "Bancos cerca",
+        "amenity.water": "Agua cerca", "amenity.restrooms": "Baños cerca",
+        "amenity.kids": "Apta para niños", "amenity.accessible": "Accesible",
+        "amenity.cost": "¿Es gratis?",
+        "profile.my_added": "Mis mesas añadidas", "profile.empty_added": "Aún no has añadido ninguna.",
+        "profile.logout": "Salir",
+        "admin.title": "Panel de administración", "admin.subtitle": "Modera contenido enviado por usuarios",
+        "admin.tab_tables": "Mesas", "admin.tab_reports": "Reportes", "admin.tab_reviews": "Reseñas",
+        "admin.delete": "Eliminar", "admin.confirm_delete": "¿Eliminar permanentemente?",
+        "common.error": "Error", "common.km": "km",
+        "detail.lighting": "Iluminación nocturna", "detail.shade": "Sombra", "detail.benches": "Bancos cerca",
+        "detail.water": "Agua cerca", "detail.restrooms": "Baños cerca", "detail.kids": "Apta para niños",
+        "detail.accessible": "Accesible", "detail.cost": "Costo", "detail.cost_free": "Gratis", "detail.cost_paid": "De pago",
+        "detail.directions": "Cómo llegar", "detail.report": "Reportar", "detail.share": "Compartir",
+        "yes": "sí", "no": "no",
+      },
+      en: {
+        "login.subtitle": "Find and play on the best tables in Heidelberg & Neckargemünd.",
+        "login.cta": "Continue with Google", "login.legal": "By continuing you agree to use public tables responsibly.",
+        "tab.map": "Map", "tab.list": "List", "tab.add": "Add", "tab.profile": "Profile", "tab.admin": "Admin",
+        "list.title": "Nearby tables", "list.from_your_loc": "Sorted from your location",
+        "list.filter_all": "All", "list.filter_lighting": "Lit", "list.empty": "No tables match this filter.",
+        "cond.good": "Good", "cond.regular": "Fair", "cond.deteriorated": "Damaged",
+        "add.title": "Add table", "add.subtitle": "Share a new table with the community.",
+        "add.name": "Name", "add.address": "Address", "add.gps": "GPS location",
+        "add.use_current": "Use current location", "add.condition": "Table condition",
+        "add.description": "Description", "add.lighting": "Night lighting",
+        "add.save": "Save table", "add.saved": "Table added!",
+        "amenity.shade": "Shade", "amenity.benches": "Benches nearby",
+        "amenity.water": "Water nearby", "amenity.restrooms": "Restrooms nearby",
+        "amenity.kids": "Kid-friendly", "amenity.accessible": "Accessible",
+        "amenity.cost": "Free?",
+        "profile.my_added": "My tables", "profile.empty_added": "You haven't added any yet.",
+        "profile.logout": "Sign out",
+        "admin.title": "Admin panel", "admin.subtitle": "Moderate user-submitted content",
+        "admin.tab_tables": "Tables", "admin.tab_reports": "Reports", "admin.tab_reviews": "Reviews",
+        "admin.delete": "Delete", "admin.confirm_delete": "Permanently delete?",
+        "common.error": "Error", "common.km": "km",
+        "detail.lighting": "Night lighting", "detail.shade": "Shade", "detail.benches": "Benches nearby",
+        "detail.water": "Water nearby", "detail.restrooms": "Restrooms nearby", "detail.kids": "Kid-friendly",
+        "detail.accessible": "Accessible", "detail.cost": "Cost", "detail.cost_free": "Free", "detail.cost_paid": "Paid",
+        "detail.directions": "Directions", "detail.report": "Report", "detail.share": "Share",
+        "yes": "yes", "no": "no",
+      },
+      de: {
+        "login.subtitle": "Finde und spiele an den besten Tischen in Heidelberg & Neckargemünd.",
+        "login.cta": "Mit Google fortfahren", "login.legal": "Mit dem Fortfahren stimmst du der Nutzung öffentlicher Tische zu.",
+        "tab.map": "Karte", "tab.list": "Liste", "tab.add": "Hinzufügen", "tab.profile": "Profil", "tab.admin": "Admin",
+        "list.title": "Tische in der Nähe", "list.from_your_loc": "Nach deinem Standort sortiert",
+        "list.filter_all": "Alle", "list.filter_lighting": "Beleuchtet", "list.empty": "Keine Tische mit diesem Filter.",
+        "cond.good": "Gut", "cond.regular": "Mittel", "cond.deteriorated": "Beschädigt",
+        "add.title": "Tisch hinzufügen", "add.subtitle": "Teile einen neuen Tisch mit der Community.",
+        "add.name": "Name", "add.address": "Adresse", "add.gps": "GPS-Standort",
+        "add.use_current": "Aktuellen Standort verwenden", "add.condition": "Tischzustand",
+        "add.description": "Beschreibung", "add.lighting": "Nachtbeleuchtung",
+        "add.save": "Tisch speichern", "add.saved": "Tisch hinzugefügt!",
+        "amenity.shade": "Schatten", "amenity.benches": "Bänke in der Nähe",
+        "amenity.water": "Wasser in der Nähe", "amenity.restrooms": "Toiletten in der Nähe",
+        "amenity.kids": "Kinderfreundlich", "amenity.accessible": "Barrierefrei",
+        "amenity.cost": "Kostenlos?",
+        "profile.my_added": "Meine Tische", "profile.empty_added": "Du hast noch keine hinzugefügt.",
+        "profile.logout": "Abmelden",
+        "admin.title": "Admin-Panel", "admin.subtitle": "Nutzer-Inhalte moderieren",
+        "admin.tab_tables": "Tische", "admin.tab_reports": "Meldungen", "admin.tab_reviews": "Bewertungen",
+        "admin.delete": "Löschen", "admin.confirm_delete": "Dauerhaft löschen?",
+        "common.error": "Fehler", "common.km": "km",
+        "detail.lighting": "Nachtbeleuchtung", "detail.shade": "Schatten", "detail.benches": "Bänke in der Nähe",
+        "detail.water": "Wasser in der Nähe", "detail.restrooms": "Toiletten in der Nähe", "detail.kids": "Kinderfreundlich",
+        "detail.accessible": "Barrierefrei", "detail.cost": "Kosten", "detail.cost_free": "Kostenlos", "detail.cost_paid": "Kostenpflichtig",
+        "detail.directions": "Wegbeschreibung", "detail.report": "Melden", "detail.share": "Teilen",
+        "yes": "ja", "no": "nein",
+      },
+      pl: {
+        "login.subtitle": "Znajdź i graj na najlepszych stołach w Heidelbergu i Neckargemünd.",
+        "login.cta": "Kontynuuj z Google", "login.legal": "Kontynuując akceptujesz odpowiedzialne korzystanie ze stołów publicznych.",
+        "tab.map": "Mapa", "tab.list": "Lista", "tab.add": "Dodaj", "tab.profile": "Profil", "tab.admin": "Admin",
+        "list.title": "Stoły w pobliżu", "list.from_your_loc": "Posortowane od twojej lokalizacji",
+        "list.filter_all": "Wszystkie", "list.filter_lighting": "Oświetlone", "list.empty": "Brak stołów dla tego filtra.",
+        "cond.good": "Dobry", "cond.regular": "Średni", "cond.deteriorated": "Uszkodzony",
+        "add.title": "Dodaj stół", "add.subtitle": "Podziel się nowym stołem.",
+        "add.name": "Nazwa", "add.address": "Adres", "add.gps": "Lokalizacja GPS",
+        "add.use_current": "Użyj bieżącej lokalizacji", "add.condition": "Stan stołu",
+        "add.description": "Opis", "add.lighting": "Oświetlenie nocne",
+        "add.save": "Zapisz stół", "add.saved": "Stół dodany!",
+        "amenity.shade": "Cień", "amenity.benches": "Ławki w pobliżu",
+        "amenity.water": "Woda w pobliżu", "amenity.restrooms": "Toalety w pobliżu",
+        "amenity.kids": "Dla dzieci", "amenity.accessible": "Dostępne",
+        "amenity.cost": "Bezpłatne?",
+        "profile.my_added": "Moje stoły", "profile.empty_added": "Jeszcze żadnego nie dodałeś.",
+        "profile.logout": "Wyloguj",
+        "admin.title": "Panel administratora", "admin.subtitle": "Moderuj treści użytkowników",
+        "admin.tab_tables": "Stoły", "admin.tab_reports": "Zgłoszenia", "admin.tab_reviews": "Opinie",
+        "admin.delete": "Usuń", "admin.confirm_delete": "Usunąć na stałe?",
+        "common.error": "Błąd", "common.km": "km",
+        "detail.lighting": "Oświetlenie nocne", "detail.shade": "Cień", "detail.benches": "Ławki w pobliżu",
+        "detail.water": "Woda w pobliżu", "detail.restrooms": "Toalety w pobliżu", "detail.kids": "Dla dzieci",
+        "detail.accessible": "Dostępne", "detail.cost": "Koszt", "detail.cost_free": "Bezpłatnie", "detail.cost_paid": "Płatnie",
+        "detail.directions": "Jak dojechać", "detail.report": "Zgłoś", "detail.share": "Udostępnij",
+        "yes": "tak", "no": "nie",
+      },
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL ESTADO GLOBAL DE LA APP
+    // ============================================================
+    const state = {
+      user: null,            // usuario logueado
+      isAdmin: false,        // ¿es admin?
+      tables: [],            // todas las mesas
+      userLoc: null,         // ubicación del usuario {lat, lng}
+      condition: "good",     // estado seleccionado al añadir
+      filter: "all",         // filtro de la lista
+      adminTab: "tables",    // pestaña admin activa
+      locale: "es",          // idioma actual
+      map: null,             // instancia Leaflet
+      markersLayer: null,    // grupo de marcadores
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA HELPERS DE i18n (TRADUCCIÓN)
+    // ============================================================
+    function t(key) {
+      return (I18N[state.locale] && I18N[state.locale][key]) || I18N.es[key] || key;
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.documentElement.lang = state.locale;
+    }
+
+    window.setLocale = (loc) => {
+      state.locale = loc;
+      localStorage.setItem("pps.locale", loc);
+      document.getElementById("lang-select").value = loc;
+      applyTranslations();
+      renderList(); renderMyTables(); if (state.isAdmin) renderAdmin();
+    };
+
+    function detectLocale() {
+      const saved = localStorage.getItem("pps.locale");
+      if (saved && I18N[saved]) return saved;
+      const browser = (navigator.language || "es").slice(0, 2).toLowerCase();
+      return I18N[browser] ? browser : "es";
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA UTILIDADES (toast, distancia, ícono marcador)
+    // ============================================================
+    window.showToast = (msg, type = "") => {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.className = `show ${type}`;
+      setTimeout(() => toast.classList.remove("show"), 2500);
+    };
+
+    function distanceKm(a, b) {
+      const R = 6371, toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+      const x = Math.sin(dLat/2)**2 +
+                Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+    }
+
+    // SVG path del ícono MDI "table-tennis" (idéntico al logo de la app)
+    const TT_SVG_PATH = "M18.5,14C19.9,14 21,15.1 21,16.5C21,17.9 19.9,19 18.5,19C17.1,19 16,17.9 16,16.5C16,15.1 17.1,14 18.5,14M7,15C7,15 8,16 8,17V20.5C8,21.3 8.7,22 9.5,22C10.3,22 11,21.3 11,20.5V17C11,16 12,15 12,15H7M8,14H11C11,14 16,14 16,9C16,4 12,2 9.5,2C7,2 3,4 3,9C3,14 8,14 8,14Z";
+
+    // Marcador personalizado: aro blanco + círculo naranja + raqueta
+    function buildPingPongIcon() {
+      const html = `
+        <div class="pp-marker">
+          <div class="inner">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#ffffff" d="${TT_SVG_PATH}"/>
+            </svg>
+          </div>
+        </div>`;
+      return L.divIcon({ html, className: "", iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -24] });
+    }
+
+    function condClass(c) {
+      return c === "good" ? "badge-good" : c === "regular" ? "badge-regular" : "badge-deteriorated";
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA AUTH (LOGIN / LOGOUT) — SUPABASE GOOGLE
+    // ============================================================
+    window.signInWithGoogle = async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href },
+      });
+      if (error) showToast(error.message, "error");
+    };
+
+    window.signOut = async () => {
+      await supabase.auth.signOut();
+      location.reload();
+    };
+
+    async function handleAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        document.getElementById("login-screen").style.display = "flex";
+        document.getElementById("app").style.display = "none";
+        return;
+      }
+      state.user = session.user;
+      state.isAdmin = ADMIN_EMAILS.includes((session.user.email || "").toLowerCase());
+
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("app").style.display = "flex";
+      if (state.isAdmin) document.getElementById("tab-admin").style.display = "flex";
+
+      renderProfileHeader();
+      await loadTables();
+      initMap();
+      renderList();
+      renderMyTables();
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA CARGA DE DATOS (SUPABASE QUERIES)
+    // ============================================================
+    async function loadTables() {
+      const { data, error } = await supabase
+        .from("tables")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) { showToast(error.message, "error"); return; }
+      state.tables = data || [];
+      renderMarkers();
+    }
+
+    async function getCurrentLocation() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          () => resolve(null),
+          { timeout: 8000 }
+        );
+      });
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA NAVEGACIÓN ENTRE VISTAS (TABS)
+    // ============================================================
+    window.setView = (name) => {
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById(`view-${name}`).classList.add("active");
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
+      if (name === "map" && state.map) setTimeout(() => state.map.invalidateSize(), 50);
+      if (name === "admin")  renderAdmin();
+      if (name === "list")   renderList();
+      if (name === "profile") renderMyTables();
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL MAPA LEAFLET
+    // ============================================================
+    function initMap() {
+      if (state.map) return;
+      state.map = L.map("map").setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 13);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 19,
+      }).addTo(state.map);
+      state.markersLayer = L.layerGroup().addTo(state.map);
+      renderMarkers();
+      // Centrar en usuario si tiene permisos
+      getCurrentLocation().then(loc => {
+        if (loc) { state.userLoc = loc; state.map.setView([loc.lat, loc.lng], 14); renderList(); }
+      });
+    }
+
+    function renderMarkers() {
+      if (!state.markersLayer) return;
+      state.markersLayer.clearLayers();
+      state.tables.forEach(t => {
+        const m = L.marker([t.latitude, t.longitude], { icon: buildPingPongIcon() })
+          .addTo(state.markersLayer)
+          .on("click", () => openDetail(t));
+      });
+      // Auto-fit a todos los marcadores la primera vez
+      if (state.tables.length && !state.userLoc) {
+        const bounds = L.latLngBounds(state.tables.map(t => [t.latitude, t.longitude]));
+        state.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      }
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA RENDERIZADO DE LA LISTA
+    // ============================================================
+    window.setFilter = (f) => {
+      state.filter = f;
+      document.querySelectorAll("[data-filter]").forEach(b => b.classList.toggle("active", b.dataset.filter === f));
+      renderList();
+    };
+
+    function renderList() {
+      const c = document.getElementById("table-list");
+      let items = state.tables.slice();
+      if (state.filter === "lighting") items = items.filter(t => t.lighting);
+      if (state.userLoc) {
+        items.forEach(t => t._dist = distanceKm(state.userLoc, { lat: t.latitude, lng: t.longitude }));
+        items.sort((a, b) => a._dist - b._dist);
+      }
+      if (!items.length) { c.innerHTML = `<p class="empty">${t("list.empty")}</p>`; return; }
+      c.innerHTML = items.map(tbl => `
+        <div class="table-card" onclick='openDetail(${JSON.stringify(tbl).replace(/'/g, "&#39;")})'>
+          <div class="table-thumb">
+            ${tbl.photos && tbl.photos[0]
+              ? `<img src="${tbl.photos[0]}" alt="">`
+              : `<i class="mdi mdi-table-tennis"></i>`}
+          </div>
+          <div class="table-info">
+            <div class="table-name">${escapeHtml(tbl.name)}</div>
+            <div class="table-meta">
+              <span class="badge ${condClass(tbl.condition)}">${t("cond." + tbl.condition)}</span>
+              ${tbl._dist != null ? `${tbl._dist.toFixed(1)} ${t("common.km")} · ` : ""}
+              ${escapeHtml(tbl.address || "")}
+            </div>
+          </div>
+          <i class="mdi mdi-chevron-right" style="color:var(--text-2);font-size:22px;"></i>
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, c =>
+        ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]);
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL MODAL DE DETALLE
+    // ============================================================
+    window.openDetail = (tbl) => {
+      // Si llega como string-JSON desde inline onclick, parsearlo
+      if (typeof tbl === "string") tbl = JSON.parse(tbl);
+      document.getElementById("detail-title").textContent = tbl.name;
+      const photos = (tbl.photos || []).map(p => `<img class="modal-photo" src="${p}" alt="">`).join("");
+      const row = (icon, label, val) => `<div class="detail-row"><i class="mdi mdi-${icon}"></i><span>${label}</span><span class="val">${val}</span></div>`;
+      const yn = b => b ? `<i class="mdi mdi-check-circle" style="color:var(--success);"></i>` : `<i class="mdi mdi-close-circle" style="color:var(--error);"></i>`;
+      document.getElementById("detail-body").innerHTML = `
+        ${photos ? `<div class="modal-photos">${photos}</div>` : ""}
+        <p style="color:var(--text-2);">${escapeHtml(tbl.address || "")}</p>
+        <p>${escapeHtml(tbl.description || "")}</p>
+        <div style="margin:12px 0;">
+          <span class="badge ${condClass(tbl.condition)}">${t("cond." + tbl.condition)}</span>
+        </div>
+        ${row("lightbulb-on",   t("detail.lighting"),  yn(tbl.lighting))}
+        ${row("umbrella",       t("detail.shade"),     yn(tbl.has_shade))}
+        ${row("seat-outline",   t("detail.benches"),   yn(tbl.has_benches))}
+        ${row("water",          t("detail.water"),     yn(tbl.has_water))}
+        ${row("toilet",         t("detail.restrooms"), yn(tbl.has_restrooms))}
+        ${row("baby-face",      t("detail.kids"),      yn(tbl.kid_friendly))}
+        ${row("wheelchair",     t("detail.accessible"),yn(tbl.accessible))}
+        ${row("currency-eur",   t("detail.cost"),      tbl.cost === "free" ? t("detail.cost_free") : t("detail.cost_paid"))}
+        <div class="btn-row">
+          <button class="btn btn-secondary"onclick="window.open('https://www.google.com/maps?q=${tbl.latitude},${tbl.longitude}','_blank')",'_blank')">
+            <i class="mdi mdi-directions"></i> ${t("detail.directions")}
+          </button>
+          <button class="btn btn-secondary" onclick="reportTable('${tbl.id}')">
+            <i class="mdi mdi-flag"></i> ${t("detail.report")}
+            <button class="btn btn-primary" onclick="addPhotoToExisting('${tbl.id}')">
+            <i class="mdi mdi-camera-plus"></i> Añadir foto
+            </button>
+        </div>
+      `;
+      document.getElementById("detail-modal").classList.add("open");
+    };
+    window.closeModal = (id) => document.getElementById(id).classList.remove("open");
+
+   // ============================================================
+    // AQUÍ EMPIEZA AÑADIR MESA (FORM) — CON SOPORTE DE FOTOS
+    // ============================================================
+    let pendingPhotos = []; // archivos seleccionados antes de subir
+
+    window.setCondition = (c) => {
+      state.condition = c;
+      document.querySelectorAll("#cond-seg button").forEach(b =>
+        b.classList.toggle("active", b.dataset.val === c));
+    };
+
+    window.useCurrentLocation = async () => {
+      const loc = await getCurrentLocation();
+      if (!loc) { showToast(t("common.error"), "error"); return; }
+      document.getElementById("add-lat").value = loc.lat.toFixed(6);
+      document.getElementById("add-lng").value = loc.lng.toFixed(6);
+    };
+
+    // ----- Selección de fotos: previsualización antes de subir -----
+    window.handlePhotoSelect = (e) => {
+      const files = Array.from(e.target.files || []);
+      files.forEach(f => pendingPhotos.push(f));
+      renderPhotoPreview();
+      e.target.value = ""; // permitir reseleccionar el mismo archivo
+    };
+
+    function renderPhotoPreview() {
+      const c = document.getElementById("photo-preview");
+      c.innerHTML = pendingPhotos.map((f, i) => `
+        <div class="photo-preview-item">
+          <img src="${URL.createObjectURL(f)}" alt="">
+          <span class="photo-remove" onclick="removePhoto(${i})">×</span>
+        </div>`).join("");
+    }
+    window.removePhoto = (i) => {
+      pendingPhotos.splice(i, 1);
+      renderPhotoPreview();
+    };
+
+    // ----- Sube un archivo a Supabase Storage y devuelve la URL pública -----
+    async function uploadPhoto(file) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const fileName = `${state.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { error } = await supabase.storage
+        .from("table-photos")
+        .upload(fileName, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from("table-photos").getPublicUrl(fileName);
+      return data.publicUrl;
+    }
+
+    // ----- Crear mesa con fotos -----
+    window.submitTable = async () => {
+      const btn = document.getElementById("submit-btn");
+      const name = document.getElementById("add-name").value.trim();
+      const address = document.getElementById("add-address").value.trim();
+      const lat = parseFloat(document.getElementById("add-lat").value);
+      const lng = parseFloat(document.getElementById("add-lng").value);
+      if (!name || !address || isNaN(lat) || isNaN(lng)) {
+        showToast(t("common.error") + ": faltan datos", "error"); return;
+      }
+      btn.disabled = true;
+      btn.innerHTML = `<div class="loader"></div>`;
+
+      try {
+        // 1) Subir todas las fotos a Storage en paralelo
+        const photoUrls = await Promise.all(pendingPhotos.map(uploadPhoto));
+
+        // 2) Insertar fila en la tabla "tables" con las URLs públicas
+        const payload = {
+          name, address,
+          latitude: lat, longitude: lng,
+          condition: state.condition,
+          description: document.getElementById("add-desc").value.trim(),
+          lighting:      document.getElementById("amen-lighting").checked,
+          has_shade:     document.getElementById("amen-shade").checked,
+          has_benches:   document.getElementById("amen-benches").checked,
+          has_water:     document.getElementById("amen-water").checked,
+          has_restrooms: document.getElementById("amen-restrooms").checked,
+          kid_friendly:  document.getElementById("amen-kids").checked,
+          accessible:    document.getElementById("amen-accessible").checked,
+          cost:          document.getElementById("amen-free").checked ? "free" : "paid",
+          photos: photoUrls,           // ← aquí guardamos el array de URLs
+          user_id: state.user.id,
+        };
+        const { error } = await supabase.from("tables").insert(payload);
+        if (error) throw error;
+
+        showToast(t("add.saved"), "success");
+        // Limpiar formulario y previsualización
+        ["add-name","add-address","add-lat","add-lng","add-desc"]
+          .forEach(id => document.getElementById(id).value = "");
+        pendingPhotos = [];
+        renderPhotoPreview();
+        await loadTables(); renderList(); renderMyTables();
+        setView("map");
+      } catch (e) {
+        showToast(e.message || "Error", "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="mdi mdi-check-circle"></i> <span>${t("add.save")}</span>`;
+      }
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA AÑADIR FOTO A UNA MESA EXISTENTE (desde el detalle)
+    // ============================================================
+    window.addPhotoToExisting = async (tableId) => {
+      // Crear input file invisible al vuelo
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        showToast("Subiendo...", "");
+        try {
+          const url = await uploadPhoto(file);
+          // Leer fotos actuales y añadir la nueva
+          const { data: tbl } = await supabase
+            .from("tables").select("photos").eq("id", tableId).single();
+          const newPhotos = [...(tbl?.photos || []), url];
+          const { error } = await supabase
+            .from("tables").update({ photos: newPhotos }).eq("id", tableId);
+          if (error) throw error;
+          showToast("✔ Foto añadida", "success");
+          await loadTables();
+          // Refrescar el modal con la mesa actualizada
+          const updated = state.tables.find(x => x.id === tableId);
+          if (updated) openDetail(updated);
+        } catch (e) {
+          showToast(e.message || "Error", "error");
+        }
+      };
+      input.click();
+    };
+    // ============================================================
+    // AQUÍ EMPIEZA REPORTES
+    // ============================================================
+    window.reportTable = async (tableId) => {
+      const issue = prompt("Describe el problema (mesa rota, foto incorrecta, etc.):");
+      if (!issue) return;
+      const { error } = await supabase.from("reports").insert({
+        table_id: tableId, user_id: state.user.id,
+        issue_type: "other", comment: issue,
+      });
+      if (error) showToast(error.message, "error");
+      else showToast("✔ Reporte enviado", "success");
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA PERFIL DEL USUARIO
+    // ============================================================
+    function renderProfileHeader() {
+      const u = state.user;
+      document.getElementById("profile-header").innerHTML = `
+        ${u.user_metadata.avatar_url ? `<img src="${u.user_metadata.avatar_url}" style="width:88px;height:88px;border-radius:50%;margin-bottom:8px;">` : ""}
+        <h2 style="margin:0;">${escapeHtml(u.user_metadata.full_name || u.email)}</h2>
+        <p style="color:var(--text-2);margin:4px 0;">${escapeHtml(u.email)}</p>
+        ${state.isAdmin ? `<span class="badge badge-good">ADMIN</span>` : ""}
+      `;
+    }
+
+    function renderMyTables() {
+      const c = document.getElementById("my-tables");
+      if (!state.user) return;
+      const mine = state.tables.filter(t => t.user_id === state.user.id);
+      if (!mine.length) { c.innerHTML = `<p class="empty">${t("profile.empty_added")}</p>`; return; }
+      c.innerHTML = mine.map(tbl => `
+        <div class="table-card" onclick='openDetail(${JSON.stringify(tbl).replace(/'/g, "&#39;")})'>
+          <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
+          <div class="table-info">
+            <div class="table-name">${escapeHtml(tbl.name)}</div>
+            <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
+          </div>
+        </div>`).join("");
+    }
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL PANEL ADMIN
+    // ============================================================
+    window.setAdminTab = (tab) => {
+      state.adminTab = tab;
+      document.querySelectorAll("[data-admin-tab]").forEach(b => b.classList.toggle("active", b.dataset.adminTab === tab));
+      renderAdmin();
+    };
+
+    async function renderAdmin() {
+      if (!state.isAdmin) return;
+      const c = document.getElementById("admin-list");
+      c.innerHTML = `<div class="loader"></div>`;
+      let html = "";
+      if (state.adminTab === "tables") {
+        html = state.tables.map(tbl => `
+          <div class="table-card">
+            <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
+            <div class="table-info">
+              <div class="table-name">${escapeHtml(tbl.name)}</div>
+              <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
+            </div>
+            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('tables','${tbl.id}')">
+              <i class="mdi mdi-trash-can"></i>
+            </button>
+          </div>`).join("");
+      } else if (state.adminTab === "reports") {
+        const { data } = await supabase.from("reports").select("*, tables(name)").order("created_at", { ascending: false });
+        html = (data || []).map(r => `
+          <div class="table-card">
+            <div class="table-thumb" style="background:var(--error);"><i class="mdi mdi-flag"></i></div>
+            <div class="table-info">
+              <div class="table-name">${escapeHtml(r.tables?.name || "(eliminada)")}</div>
+              <div class="table-meta">${escapeHtml(r.comment || r.issue_type)}</div>
+            </div>
+            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('reports','${r.id}')">
+              <i class="mdi mdi-check"></i>
+            </button>
+          </div>`).join("") || `<p class="empty">—</p>`;
+      } else if (state.adminTab === "reviews") {
+        const { data } = await supabase.from("reviews").select("*, tables(name)").order("created_at", { ascending: false });
+        html = (data || []).map(r => `
+          <div class="table-card">
+            <div class="table-thumb"><i class="mdi mdi-star"></i></div>
+            <div class="table-info">
+              <div class="table-name">${escapeHtml(r.tables?.name || "(eliminada)")}</div>
+              <div class="table-meta">"${escapeHtml(r.comment)}" · ${r.rating}★</div>
+            </div>
+            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('reviews','${r.id}')">
+              <i class="mdi mdi-trash-can"></i>
+            </button>
+          </div>`).join("") || `<p class="empty">—</p>`;
+      }
+      c.innerHTML = html || `<p class="empty">—</p>`;
+    }
+
+    window.adminDelete = async (table, id) => {
+      if (!confirm(t("admin.confirm_delete"))) return;
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) { showToast(error.message, "error"); return; }
+      showToast("✔", "success");
+      if (table === "tables") await loadTables();
+      renderAdmin(); renderList();
+    };
+
+    // ============================================================
+    // AQUÍ EMPIEZA EL ARRANQUE (BOOT)
+    // ============================================================
+    state.locale = detectLocale();
+    document.getElementById("lang-select").value = state.locale;
+    applyTranslations();
+
+    // Escucha cambios de auth (login/logout)
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") handleAuth();
+    });
+    handleAuth();
+  </script>
+
+  <!-- ============================================================
+       AQUÍ TERMINA EL CÓDIGO
+       ============================================================
+       SQL PARA SUPABASE — Pega esto en SQL Editor de tu proyecto:
+  --------------------------------------------------------------
+
+  -- Tablas principales
+  CREATE TABLE tables (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name         text NOT NULL,
+    address      text,
+    latitude     double precision NOT NULL,
+    longitude    double precision NOT NULL,
+    condition    text DEFAULT 'good',
+    lighting     boolean DEFAULT false,
+    has_shade    boolean DEFAULT false,
+    has_benches  boolean DEFAULT false,
+    has_water    boolean DEFAULT false,
+    has_restrooms boolean DEFAULT false,
+    kid_friendly boolean DEFAULT false,
+    accessible   boolean DEFAULT false,
+    cost         text DEFAULT 'free',
+    description  text,
+    photos       jsonb DEFAULT '[]'::jsonb,
+    user_id      uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at   timestamptz DEFAULT now()
+  );
+
+  CREATE TABLE reviews (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    table_id   uuid REFERENCES tables(id) ON DELETE CASCADE,
+    user_id    uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    rating     int CHECK (rating BETWEEN 1 AND 5),
+    comment    text,
+    created_at timestamptz DEFAULT now()
+  );
+
+  CREATE TABLE reports (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    table_id   uuid REFERENCES tables(id) ON DELETE CASCADE,
+    user_id    uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    issue_type text,
+    comment    text,
+    created_at timestamptz DEFAULT now()
+  );
+
+  -- Row Level Security: lectura pública, escritura solo logueados
+  ALTER TABLE tables  ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY "tables_read"   ON tables  FOR SELECT USING (true);
+  CREATE POLICY "tables_insert" ON tables  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  CREATE POLICY "tables_update" ON tables  FOR UPDATE USING (auth.uid() = user_id OR auth.email() = 'rovimars@gmail.com');
+  CREATE POLICY "tables_delete" ON tables  FOR DELETE USING (auth.email() = 'rovimars@gmail.com');
+
+  CREATE POLICY "reviews_read"   ON reviews FOR SELECT USING (true);
+  CREATE POLICY "reviews_insert" ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+  CREATE POLICY "reviews_delete" ON reviews FOR DELETE USING (auth.email() = 'rovimars@gmail.com');
+
+  CREATE POLICY "reports_read"   ON reports FOR SELECT USING (auth.email() = 'rovimars@gmail.com');
+  CREATE POLICY "reports_insert" ON reports FOR INSERT WITH CHECK (auth.uid() = user_id);
+  CREATE POLICY "reports_delete" ON reports FOR DELETE USING (auth.email() = 'rovimars@gmail.com');
+
+  -- Habilitar Google OAuth en: Authentication → Providers → Google
+  -->
+
+</body>
+</html>
+"
+Observation: Create successful: /app/pingpong-spot.html
+
+Fetching debug logs for expo
+
+==> /var/log/supervisor/expo.err.log <==
+Check the Ngrok status page for outages: https://status.ngrok.com/
+error Command failed with exit code 1.
+CommandError: TypeError: Cannot read properties of undefined (reading 'body')
+Check the Ngrok status page for outages: https://status.ngrok.com/
+error Command failed with exit code 1.
+CommandError: TypeError: Cannot read properties of undefined (reading 'body')
+Check the Ngrok status page for outages: https://status.ngrok.com/
+error Command failed with exit code 1.
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+
+==> /var/log/supervisor/expo.out.log <==
+Web Bundled 27ms node_modules/expo-router/entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 5ms node_modules/leaflet/dist/leaflet-src.js (1 module)
+Web Bundled 3ms node_modules/react-leaflet/lib/index.js (1 module)
+Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 33ms node_modules/expo-router/node/render.js (1 module)
+Web Bundled 470ms node_modules/expo-router/entry.js (1 module)
+λ Bundled 107ms node_modules/expo-router/node/render.js (1 module)
+Web Bundled 444ms node_modules/expo-router/entry.js (1 module)
+Web Bundled 24ms node_modules/expo-router/entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 5ms node_modules/leaflet/dist/leaflet-src.js (1 module)
+Web Bundled 3ms node_modules/react-leaflet/lib/index.js (1 module)
+Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 19ms node_modules/expo-router/node/render.js (1 module)
+Web Bundled 538ms node_modules/expo-router/entry.js (1 module)
+Web Bundled 23ms node_modules/expo-router/entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 6ms node_modules/leaflet/dist/leaflet-src.js (1 module)
+Web Bundled 3ms node_modules/react-leaflet/lib/index.js (1 module)
+
+
+Fetching debug logs for backend
+
+==> /var/log/supervisor/backend.err.log <==
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [139] using WatchFiles
+INFO:     Started server process [180]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-04-27 06:44:00,701 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 06:52:34,074 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 06:59:44,711 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 07:05:22,263 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [120] using WatchFiles
+INFO:     Started server process [158]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-04-27 08:29:14,839 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 08:34:19,919 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 08:37:21,733 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+2026-04-27 08:41:13,936 - httpx - INFO - HTTP Request: GET https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data "HTTP/1.1 200 OK"
+
+==> /var/log/supervisor/backend.out.log <==
+INFO:     10.231.129.92:52646 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     10.231.129.92:57698 - "GET /api/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     10.231.129.91:52742 - "POST /api/auth/session HTTP/1.1" 200 OK
+INFO:     10.231.129.92:57698 - "GET /api/tables HTTP/1.1" 200 OK
+INFO:     10.231.129.92:60330 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     10.231.129.91:37180 - "GET /api/tables HTTP/1.1" 200 OK
+INFO:     10.231.129.91:35378 - "GET /api/favorites HTTP/1.1" 200 OK
+INFO:     10.231.129.91:35376 - "GET /api/my-tables HTTP/1.1" 200 OK
+INFO:     10.231.129.91:35376 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     10.231.129.92:60538 - "GET /api/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     10.231.129.92:60538 - "POST /api/auth/session HTTP/1.1" 200 OK
+INFO:     10.231.129.91:60504 - "GET /api/tables HTTP/1.1" 200 OK
+INFO:     10.231.129.92:56228 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     10.231.129.91:42254 - "GET /api/tables HTTP/1.1" 200 OK
+INFO:     10.231.129.92:56238 - "GET /api/my-tables HTTP/1.1" 200 OK
+INFO:     10.231.129.91:42262 - "GET /api/favorites HTTP/1.1" 200 OK
+INFO:     10.231.129.92:56238 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     10.231.129.91:39474 - "GET /api/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     10.231.129.91:39474 - "POST /api/auth/session HTTP/1.1" 200 OK
+INFO:     10.231.129.92:51218 - "GET /api/tables HTTP/1.1" 200 OK
+
+
+Fetching debug logs for mongodb
+
+tail: cannot open '/var/log/supervisor/mongodb*.log' for reading: No such file or directory
