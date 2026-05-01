@@ -963,197 +963,163 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
       return data.publicUrl;
     }
 
-    // ----- Crear mesa con fotos -----
-    window.submitTable = async () => {
-      const btn = document.getElementById("submit-btn");
-      const name = document.getElementById("add-name").value.trim();
-      const address = document.getElementById("add-address").value.trim();
-      const lat = parseFloat(document.getElementById("add-lat").value);
-      const lng = parseFloat(document.getElementById("add-lng").value);
-      if (!name || !address || isNaN(lat) || isNaN(lng)) {
-        showToast(t("common.error") + ": faltan datos", "error"); return;
-      }
-      btn.disabled = true;
-      btn.innerHTML = `<div class="loader"></div>`;
+   // ----- Crear mesa con fotos -----
+window.submitTable = async () => {
+  const btn = document.getElementById("submit-btn");
+  const name = document.getElementById("add-name").value.trim();
+  const address = document.getElementById("add-address").value.trim();
+  const lat = parseFloat(document.getElementById("add-lat").value);
+  const lng = parseFloat(document.getElementById("add-lng").value);
+  
+  if (!name || !address || isNaN(lat) || isNaN(lng)) {
+    showToast(t("common.error") + ": faltan datos", "error"); 
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerHTML = `<div class="loader"></div>`;
 
-      try {
-        // 1) Subir todas las fotos a Storage en paralelo
-        const photoUrls = await Promise.all(pendingPhotos.map(uploadPhoto));
-
-        // 2) Insertar fila en la tabla "tables" con las URLs públicas
-        const payload = {
-          name, address,
-          latitude: lat, longitude: lng,
-          condition: state.condition,
-          description: document.getElementById("add-desc").value.trim(),
-          lighting:      document.getElementById("amen-lighting").checked,
-          has_shade:     document.getElementById("amen-shade").checked,
-          has_benches:   document.getElementById("amen-benches").checked,
-          has_water:     document.getElementById("amen-water").checked,
-          has_restrooms: document.getElementById("amen-restrooms").checked,
-          kid_friendly:  document.getElementById("amen-kids").checked,
-          accessible:    document.getElementById("amen-accessible").checked,
-          cost:          document.getElementById("amen-free").checked ? "free" : "paid",
-          photos: photoUrls,           // ← aquí guardamos el array de URLs
-          user_id: state.user.id,
-        };
-        const { error } = await supabase.from("tables").insert(payload);
-        if (error) throw error;
-
-        showToast(t("add.saved"), "success");
-        // Limpiar formulario y previsualización
-        ["add-name","add-address","add-lat","add-lng","add-desc"]
-          .forEach(id => document.getElementById(id).value = "");
-        pendingPhotos = [];
-        renderPhotoPreview();
-        await loadTables(); renderList(); renderMyTables();
-        setView("map");
-      } catch (e) {
-        showToast(e.message || "Error", "error");
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="mdi mdi-check-circle"></i> <span>${t("add.save")}</span>`;
-      }
+  try {
+    const photoUrls = await Promise.all(pendingPhotos.map(uploadPhoto));
+    const payload = {
+      name, address,
+      latitude: lat, longitude: lng,
+      condition: state.condition,
+      description: document.getElementById("add-desc").value.trim(),
+      lighting: document.getElementById("amen-lighting").checked,
+      has_shade: document.getElementById("amen-shade").checked,
+      has_benches: document.getElementById("amen-benches").checked,
+      has_water: document.getElementById("amen-water").checked,
+      has_restrooms: document.getElementById("amen-restrooms").checked,
+      kid_friendly: document.getElementById("amen-kids").checked,
+      accessible: document.getElementById("amen-accessible").checked,
+      cost: document.getElementById("amen-free").checked ? "free" : "paid",
+      photos: photoUrls,
+      user_id: state.user.id,
     };
+    
+    const { error } = await supabase.from("tables").insert(payload);
+    if (error) throw error;
 
-    // ============================================================
-    // AQUÍ EMPIEZA AÑADIR FOTO A UNA MESA EXISTENTE (desde el detalle)
-    // ============================================================
-    window.addPhotoToExisting = async (tableId) => {
-      // Crear input file invisible al vuelo
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        showToast("Subiendo...", "");
-        try {
-          const url = await uploadPhoto(file);
-          // Leer fotos actuales y añadir la nueva
-          const { data: tbl } = await supabase
-            .from("tables").select("photos").eq("id", tableId).single();
-          const newPhotos = [...(tbl?.photos || []), url];
-          const { error } = await supabase
-            .from("tables").update({ photos: newPhotos }).eq("id", tableId);
-          if (error) throw error;
-          showToast("✔ Foto añadida", "success");
-          await loadTables();
-          // Refrescar el modal con la mesa actualizada
-          const updated = state.tables.find(x => x.id === tableId);
-          if (updated) openDetail(updated);
-        } catch (e) {
-          showToast(e.message || "Error", "error");
-        }
-      };
-      input.click();
-    };
-    // ============================================================
-    // AQUÍ EMPIEZA REPORTES
-    // ============================================================
-    window.reportTable = async (tableId) => {
-      const issue = prompt("Describe el problema (mesa rota, foto incorrecta, etc.):");
-      if (!issue) return;
-      const { error } = await supabase.from("reports").insert({
-        table_id: tableId, user_id: state.user.id,
-        issue_type: "other", comment: issue,
+    showToast(t("add.saved"), "success");
+    // Limpiar formulario
+    ["add-name","add-address","add-lat","add-lng","add-desc"]
+      .forEach(id => { 
+        const el = document.getElementById(id); 
+        if(el) el.value = ""; 
       });
-      if (error) showToast(error.message, "error");
-      else showToast("✔ Reporte enviado", "success");
-    };
+    pendingPhotos = [];
+    renderPhotoPreview();
+    await loadTables(); renderList(); renderMyTables();
+    setView("map");
+  } catch (e) {
+    showToast(e.message || "Error", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="mdi mdi-check-circle"></i> <span>${t("add.save")}</span>`;
+  }
+};
 
-    // ============================================================
-    // AQUÍ EMPIEZA PERFIL DEL USUARIO
-    // ============================================================
-    function renderProfileHeader() {
-      const u = state.user;
-      document.getElementById("profile-header").innerHTML = `
-        ${u.user_metadata.avatar_url ? `<img src="${u.user_metadata.avatar_url}" style="width:88px;height:88px;border-radius:50%;margin-bottom:8px;">` : ""}
-        <h2 style="margin:0;">${escapeHtml(u.user_metadata.full_name || u.email)}</h2>
-        <p style="color:var(--text-2);margin:4px 0;">${escapeHtml(u.email)}</p>
-        ${state.isAdmin ? `<span class="badge badge-good">ADMIN</span>` : ""}
-      `;
-    }
+// ----- Añadir foto a mesa existente -----
+window.addPhotoToExisting = async (tableId) => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    showToast("Subiendo...", "");
+    try {
+      const url = await uploadPhoto(file);
+      const { data: tbl } = await supabase.from("tables").select("photos").eq("id", tableId).single();
+      const newPhotos = [...(tbl?.photos || []), url];
+      await supabase.from("tables").update({ photos: newPhotos }).eq("id", tableId);
+      showToast("✔ Foto añadida", "success");
+      await loadTables();
+      const updated = state.tables.find(x => x.id === tableId);
+      if (updated) openDetail(updated);
+    } catch (e) { showToast(e.message || "Error", "error"); }
+  };
+  input.click();
+};
 
-    function renderMyTables() {
-      const c = document.getElementById("my-tables");
-      if (!state.user) return;
-      const mine = state.tables.filter(t => t.user_id === state.user.id);
-      if (!mine.length) { c.innerHTML = `<p class="empty">${t("profile.empty_added")}</p>`; return; }
-      c.innerHTML = mine.map(tbl => `
-        <div class="table-card" onclick='openDetail(${JSON.stringify(tbl).replace(/'/g, "&#39;")})'>
-          <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
-          <div class="table-info">
-            <div class="table-name">${escapeHtml(tbl.name)}</div>
-            <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
-          </div>
-        </div>`).join("");
-    }
+// ----- Reportes -----
+window.reportTable = async (tableId) => {
+  const issue = prompt("Describe el problema:");
+  if (!issue) return;
+  const { error } = await supabase.from("reports").insert({
+    table_id: tableId, user_id: state.user.id,
+    issue_type: "other", comment: issue,
+  });
+  if (error) showToast(error.message, "error");
+  else showToast("✔ Reporte enviado", "success");
+};
 
-    // ============================================================
-    // AQUÍ EMPIEZA EL PANEL ADMIN
-    // ============================================================
-    window.setAdminTab = (tab) => {
-      state.adminTab = tab;
-      document.querySelectorAll("[data-admin-tab]").forEach(b => b.classList.toggle("active", b.dataset.adminTab === tab));
-      renderAdmin();
-    };
+// ----- Perfil -----
+function renderProfileHeader() {
+  if (!state.user) return;
+  const u = state.user;
+  document.getElementById("profile-header").innerHTML = `
+    ${u.user_metadata.avatar_url ? `<img src="${u.user_metadata.avatar_url}" style="width:88px;height:88px;border-radius:50%;margin-bottom:8px;">` : ""}
+    <h2 style="margin:0;">${escapeHtml(u.user_metadata.full_name || u.email)}</h2>
+    <p style="color:var(--text-2);margin:4px 0;">${escapeHtml(u.email)}</p>
+    ${state.isAdmin ? `<span class="badge badge-good">ADMIN</span>` : ""}
+  `;
+}
 
-    async function renderAdmin() {
-      if (!state.isAdmin) return;
-      const c = document.getElementById("admin-list");
-      c.innerHTML = `<div class="loader"></div>`;
-      let html = "";
-      if (state.adminTab === "tables") {
-        html = state.tables.map(tbl => `
-          <div class="table-card">
-            <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
-            <div class="table-info">
-              <div class="table-name">${escapeHtml(tbl.name)}</div>
-              <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
-            </div>
-            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('tables','${tbl.id}')">
-              <i class="mdi mdi-trash-can"></i>
-            </button>
-          </div>`).join("");
-      } else if (state.adminTab === "reports") {
-        const { data } = await supabase.from("reports").select("*, tables(name)").order("created_at", { ascending: false });
-        html = (data || []).map(r => `
-          <div class="table-card">
-            <div class="table-thumb" style="background:var(--error);"><i class="mdi mdi-flag"></i></div>
-            <div class="table-info">
-              <div class="table-name">${escapeHtml(r.tables?.name || "(eliminada)")}</div>
-              <div class="table-meta">${escapeHtml(r.comment || r.issue_type)}</div>
-            </div>
-            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('reports','${r.id}')">
-              <i class="mdi mdi-check"></i>
-            </button>
-          </div>`).join("") || `<p class="empty">—</p>`;
-      } else if (state.adminTab === "reviews") {
-        const { data } = await supabase.from("reviews").select("*, tables(name)").order("created_at", { ascending: false });
-        html = (data || []).map(r => `
-          <div class="table-card">
-            <div class="table-thumb"><i class="mdi mdi-star"></i></div>
-            <div class="table-info">
-              <div class="table-name">${escapeHtml(r.tables?.name || "(eliminada)")}</div>
-              <div class="table-meta">"${escapeHtml(r.comment)}" · ${r.rating}★</div>
-            </div>
-            <button class="btn btn-danger" style="width:auto;padding:8px 12px;min-height:36px;" onclick="adminDelete('reviews','${r.id}')">
-              <i class="mdi mdi-trash-can"></i>
-            </button>
-          </div>`).join("") || `<p class="empty">—</p>`;
-      }
-      c.innerHTML = html || `<p class="empty">—</p>`;
-    }
+function renderMyTables() {
+  const c = document.getElementById("my-tables");
+  if (!state.user || !c) return;
+  const mine = state.tables.filter(t => t.user_id === state.user.id);
+  if (!mine.length) { c.innerHTML = `<p class="empty">${t("profile.empty_added")}</p>`; return; }
+  c.innerHTML = mine.map(tbl => `
+    <div class="table-card" onclick='openDetail(${JSON.stringify(tbl).replace(/'/g, "&#39;")})'>
+      <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
+      <div class="table-info">
+        <div class="table-name">${escapeHtml(tbl.name)}</div>
+        <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
+      </div>
+    </div>`).join("");
+}
 
-    window.adminDelete = async (table, id) => {
-      if (!confirm(t("admin.confirm_delete"))) return;
-      const { error } = await supabase.from(table).delete().eq("id", id);
-      if (error) { showToast(error.message, "error"); return; }
-      showToast("✔", "success");
-      if (table === "tables") await loadTables();
-      renderAdmin(); renderList();
-    };
+// ----- Admin -----
+window.setAdminTab = (tab) => {
+  state.adminTab = tab;
+  document.querySelectorAll("[data-admin-tab]").forEach(b => b.classList.toggle("active", b.dataset.adminTab === tab));
+  renderAdmin();
+};
+
+async function renderAdmin() {
+  if (!state.isAdmin) return;
+  const c = document.getElementById("admin-list");
+  if (!c) return;
+  c.innerHTML = `<div class="loader"></div>`;
+  let html = "";
+  if (state.adminTab === "tables") {
+     html = state.tables.map(tbl => `
+      <div class="table-card">
+        <div class="table-thumb"><i class="mdi mdi-table-tennis"></i></div>
+        <div class="table-info">
+          <div class="table-name">${escapeHtml(tbl.name)}</div>
+          <div class="table-meta">${escapeHtml(tbl.address || "")}</div>
+        </div>
+        <button class="btn btn-danger" onclick="adminDelete('tables','${tbl.id}')">Eliminar</button>
+      </div>`).join("");
+  }
+  c.innerHTML = html || `<p class="empty">—</p>`;
+}
+
+window.adminDelete = async (table, id) => {
+  if (!confirm("¿Seguro?")) return;
+  const { error } = await supabase.from(table).delete().eq("id", id);
+  if (error) { showToast(error.message, "error"); return; }
+  showToast("✔", "success");
+  if (table === "tables") await loadTables();
+  renderAdmin(); renderList();
+};
+
+// Iniciar app
+handleAuth();
 
     // ============================================================
     // AQUÍ EMPIEZA EL ARRANQUE (BOOT)
