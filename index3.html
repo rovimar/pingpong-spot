@@ -372,81 +372,71 @@
 
     <!-- ========== VISTA: AÑADIR MESA ========== -->
     <section id="view-add" class="view">
-      <div class="form-section">
-        <h2 data-i18n="add.title">Añadir mesa</h2>
-        <p class="sub" data-i18n="add.subtitle">Comparte una mesa nueva con la comunidad.</p>
+  <div class="form-section">
+    <h2 data-i18n="add.title">Añadir mesa</h2>
+    <p class="sub" data-i18n="add.subtitle">Comparte una mesa nueva con la comunidad.</p>
 
-        <div class="field">
-          <label data-i18n="add.name">Nombre</label>
-          <input id="add-name" type="text" placeholder="Ej: Parque Neckarwiese">
-        </div>
-        <div class="field">
-          <label data-i18n="add.address">Dirección</label>
-          <input id="add-address" type="text" placeholder="Calle, código postal, ciudad">
-        </div>
+    <div class="field">
+      <label data-i18n="add.name"><i class="mdi mdi-text-short"></i> Nombre</label>
+      <input id="add-name" type="text" placeholder="Ej: Parque Neckarwiese">
+    </div>
+    <div class="field">
+      <label data-i18n="add.address"><i class="mdi mdi-map-marker"></i> Dirección</label>
+      <input id="add-address" type="text" placeholder="Calle, código postal, ciudad">
+    </div>
 
-        <div class="field">
-          <label data-i18n="add.gps">Ubicación GPS</label>
-          <button class="btn btn-secondary" onclick="useCurrentLocation()" style="margin-bottom:8px;">
-            <i class="mdi mdi-crosshairs-gps"></i>
-            <span data-i18n="add.use_current">Usar ubicación actual</span>
-          </button>
-          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-  <input type="number" id="manual-lat" step="any" placeholder="Latitud (ej: 49.409)" style="flex:1;">
-  <input type="number" id="manual-lng" step="any" placeholder="Longitud (ej: 8.692)" style="flex:1;">
-</div>
-          <div style="display:flex; gap:8px;">
-            <input id="add-lat" type="text" placeholder="Latitud (49.4093)">
-            <input id="add-lng" type="text" placeholder="Longitud (8.6929)">
-          </div>
-        </div>
-
-        <div class="field">
-          <label data-i18n="add.condition">Estado de la mesa</label>
-          <div class="segment" id="cond-seg">
-            <button data-val="good"   class="active" onclick="setCondition('good')"   data-i18n="cond.good">Buena</button>
-            <button data-val="regular"            onclick="setCondition('regular')"   data-i18n="cond.regular">Regular</button>
-            <button data-val="deteriorated"       onclick="setCondition('deteriorated')" data-i18n="cond.deteriorated">Deteriorada</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label data-i18n="add.description">Descripción</label>
-          <textarea id="add-desc" placeholder="Detalles útiles..."></textarea>
-        </div>
-
-        <!-- Toggles de amenidades -->
-        <div class="toggle-row"><label data-i18n="add.lighting">Iluminación nocturna</label>          <label class="switch"><input type="checkbox" id="amen-lighting"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.shade">Sombra</label>                       <label class="switch"><input type="checkbox" id="amen-shade"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.benches">Bancos cerca</label>               <label class="switch"><input type="checkbox" id="amen-benches"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.water">Agua cerca</label>                   <label class="switch"><input type="checkbox" id="amen-water"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.restrooms">Baños cerca</label>              <label class="switch"><input type="checkbox" id="amen-restrooms"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.kids">Apta para niños</label>               <label class="switch"><input type="checkbox" id="amen-kids"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.accessible">Accesible</label>               <label class="switch"><input type="checkbox" id="amen-accessible"><span></span></label></div>
-        <div class="toggle-row"><label data-i18n="amenity.cost">¿Es gratis?</label>                   <label class="switch"><input type="checkbox" id="amen-free" checked><span></span></label></div>
-
-        <div style="margin: 20px 0; border-top: 1px solid #444; padding-top: 15px;">
-    <label style="display: block; margin-bottom: 10px; color: #ccc; font-weight: bold;">
-        <i class="mdi mdi-camera"></i> Fotos de la mesa
-    </label>
-    
-    <input type="file" id="table-photo-input" accept="image/*" multiple 
-           onchange="handlePhotoSelect(event)" style="display: none;">
-    
-    <button type="button" class="btn" onclick="document.getElementById('table-photo-input').click()" 
-            style="background: #444; color: white; width: 100%; margin-bottom: 10px;">
-        <i class="mdi mdi-plus"></i> Seleccionar fotos
-    </button>
-
-    <div id="photo-preview" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
-</div>
-        <button class="btn btn-primary" onclick="submitTable()" id="submit-btn">
-          <i class="mdi mdi-check-circle"></i>
-          <span data-i18n="add.save">Guardar mesa</span>
-        </button>
+    <div class="field">
+      <label data-i18n="add.gps"><i class="mdi mdi-crosshairs-gps"></i> Ubicación GPS</label>
+      <button class="btn btn-secondary" onclick="useCurrentLocation()" style="margin-bottom:8px;">
+        <i class="mdi mdi-crosshairs-gps"></i>
+        <span data-i18n="add.use_current">Usar ubicación actual</span>
+      </button>
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <input type="number" id="manual-lat" step="any" placeholder="Latitud (ej: 49.409)" style="flex:1;">
+        <input type="number" id="manual-lng" step="any" placeholder="Longitud (ej: 8.692)" style="flex:1;">
       </div>
-    </section>
+    </div>
 
+    <div class="field">
+      <label data-i18n="add.condition"><i class="mdi mdi-checkbox-marked-circle-outline"></i> Estado de la mesa</label>
+      <div class="segment" id="cond-seg">
+        <button data-val="good" class="active" onclick="setCondition('good')" data-i18n="cond.good">Buena</button>
+        <button data-val="regular" onclick="setCondition('regular')" data-i18n="cond.regular">Regular</button>
+        <button data-val="deteriorated" onclick="setCondition('deteriorated')" data-i18n="cond.deteriorated">Deteriorada</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label data-i18n="add.description"><i class="mdi mdi-text"></i> Descripción</label>
+      <textarea id="add-desc" placeholder="Detalles útiles..."></textarea>
+    </div>
+
+    <div class="toggle-row"><label data-i18n="add.lighting"><i class="mdi mdi-lightbulb-on"></i> Iluminación</label><label class="switch"><input type="checkbox" id="amen-lighting"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.shade"><i class="mdi mdi-weather-sunny"></i> Sombra</label><label class="switch"><input type="checkbox" id="amen-shade"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.benches"><i class="mdi mdi-seat"></i> Bancos</label><label class="switch"><input type="checkbox" id="amen-benches"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.water"><i class="mdi mdi-water"></i> Agua</label><label class="switch"><input type="checkbox" id="amen-water"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.restrooms"><i class="mdi mdi-toilet"></i> Baños</label><label class="switch"><input type="checkbox" id="amen-restrooms"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.kids"><i class="mdi mdi-human-child"></i> Niños</label><label class="switch"><input type="checkbox" id="amen-kids"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.accessible"><i class="mdi mdi-wheelchair-accessibility"></i> Accesible</label><label class="switch"><input type="checkbox" id="amen-accessible"><span></span></label></div>
+    <div class="toggle-row"><label data-i18n="amenity.cost"><i class="mdi mdi-cash"></i> ¿Es gratis?</label><label class="switch"><input type="checkbox" id="amen-free" checked><span></span></label></div>
+
+    <div style="margin: 20px 0; border-top: 1px solid #444; padding-top: 15px;">
+      <label style="display: block; margin-bottom: 10px; color: #ccc; font-weight: bold;">
+        <i class="mdi mdi-camera"></i> Fotos de la mesa
+      </label>
+      <input type="file" id="table-photo-input" accept="image/*" multiple onchange="handlePhotoSelect(event)" style="display: none;">
+      <button type="button" class="btn" onclick="document.getElementById('table-photo-input').click()" style="background: #444; color: white; width: 100%; margin-bottom: 10px;">
+        <i class="mdi mdi-plus"></i> Seleccionar fotos
+      </button>
+      <div id="photo-preview" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="submitTable()" id="submit-btn">
+      <i class="mdi mdi-check-circle"></i>
+      <span data-i18n="add.save">Guardar mesa</span>
+    </button>
+  </div>
+</section>
     <!-- ========== VISTA: PERFIL ========== -->
     <section id="view-profile" class="view">
       <div class="form-section">
